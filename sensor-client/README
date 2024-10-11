@@ -1,0 +1,4 @@
+Run generator with `scala-cli run App.scala --main-class generator -- CONFIG`
+Run runner with, e.g., `scala-cli run App.scala --main-class runner -- http://localhost:8044 constant:200:5 20 20`
+
+Maybe warm up with: `http POST localhost:8044/sensorA/ timestamp:=35534 'measurements:=[{"reading": 39.5, "deviation":2.5},{"reading": 39.5, "deviation":2.5},{"reading": 39.5, "deviation":2.5},{"reading": 39.5, "deviation":2.5},{"reading": 39.5, "deviation":2.5}]'`

@@ -1,0 +1,11 @@
+.bloop/
+.bsp/
+.metals/
+.metals/
+project/.bloop/
+project/project/
+project/target/
+project/metals.sbt
+target/
+log.txt
+
