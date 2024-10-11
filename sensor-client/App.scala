@@ -80,8 +80,8 @@ def runner(baseUrl: String, cooldownDescription: String, parallelReqNum: Int, pa
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   val urls = Map(
-    'A' -> "/sensorA/",
-    'B' -> "/sensorB/"
+    'A' -> "/sensorA",
+    'B' -> "/sensorB"
   ).map((sensor, path) => (sensor, Uri.parse(baseUrl + path).right.get))
   val cooldown = mkCooldown(cooldownDescription)
 

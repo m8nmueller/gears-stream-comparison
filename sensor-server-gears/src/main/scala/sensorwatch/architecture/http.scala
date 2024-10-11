@@ -9,14 +9,14 @@ import gears.async.stream.StreamOps
 import gears.async.stream.StreamResult
 import gears.async.stream.StreamSender
 import org.eclipse.jetty.http.Trailers
+import org.eclipse.jetty.http.pathmap.PathSpec
 import org.eclipse.jetty.io.Content
 import org.eclipse.jetty.server.Handler
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.Response
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.ServerConnector
-import org.eclipse.jetty.server.handler.ContextHandler
-import org.eclipse.jetty.server.handler.ContextHandlerCollection
+import org.eclipse.jetty.server.handler.PathMappingsHandler
 import org.eclipse.jetty.util.Callback
 import org.eclipse.jetty.util.ajax.AsyncJSON
 import org.eclipse.jetty.util.component.LifeCycle
@@ -111,7 +111,7 @@ private class SingleSenderPool[T](sender: StreamSender[T]) extends BlockingSende
 
 class HttpStreams(port: Int):
   private var streams: Seq[PushSenderStream[?]] = null
-  private val handlers = ContextHandlerCollection(true /*dynamic*/ )
+  private val handlers = PathMappingsHandler(true /*dynamic*/ )
   private var serverRunning: Future.Promise[Unit] = null
 
   private var failure: Throwable = null // synchronized via object monitor
@@ -144,7 +144,7 @@ class HttpStreams(port: Int):
       server.stop()
       true
 
-  def onPath(path: String): PushSenderStream[HttpHandle] = new PushSenderStream:
+  def onPath(pathSpec: String): PushSenderStream[HttpHandle] = new PushSenderStream:
     def runToSender(sender: PushDestination[StreamSender, HttpHandle])(using Async): Unit =
       if streams == null then throw IllegalStateException("stream must be started via HttpStreams instance")
 
@@ -158,7 +158,7 @@ class HttpStreams(port: Int):
             sender.send(HttpHandle(request, response, callback))(using FutureExecutor.asyncInstance.get())
           true
 
-      handlers.deployHandler(new ContextHandler(handler, path), Callback.NOOP)
+      handlers.synchronized(handlers.addMapping(PathSpec.from(pathSpec), handler))
 
       val element = HttpStreams.this.synchronized:
         if streams.isEmpty then null
@@ -174,7 +174,7 @@ class HttpStreams(port: Int):
         else
           Async.group: spawn ?=>
             val server = mkServer(FutureExecutor(spawn), handlers, port)
-            handlers.deployHandler(new ContextHandler(shutdownHandler(server), "/shutdown"), Callback.NOOP)
+            handlers.synchronized(handlers.addMapping(PathSpec.from("/shutdown"), shutdownHandler(server)))
             server.setStopAtShutdown(true)
             server.run()
             serverRunning.complete(Success(()))
