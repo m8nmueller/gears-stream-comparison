@@ -26,6 +26,7 @@ import org.http4s.Request
 import org.http4s.Response
 import org.http4s.circe.jsonOf
 import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.server.middleware.ErrorAction
 import org.typelevel.log4cats.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
@@ -51,7 +52,7 @@ def createRoute[T](
         Temporal[IO].sleep(queueTimeout)
       )
       res <- sendResult match
-        case Left(Right(_)) => Ok("ok!")
+        case Left(Right(_)) => Accepted("ok!")
         case Right(_)       => TooManyRequests("queue is full")
         case Left(Left(_))  => InternalServerError("queue is closed?")
     yield res
@@ -59,17 +60,17 @@ def createRoute[T](
 
 class SensorA(maxDeviation: Double, minMeasurements: Int):
   case class SensorValue(val reading: Double, val deviation: Double)
-  case class RawData(val timestamp: Long, val measurements: Array[SensorValue])
+  case class RawData(val timestamp: Long, val measurements: Array[Option[SensorValue]])
 
   protected given valueDecoder: io.circe.Decoder[SensorValue] = deriveDecoder[SensorValue]
   protected given decoder: io.circe.Decoder[RawData] = deriveDecoder[RawData]
   protected given userDecoder: EntityDecoder[IO, RawData] = jsonOf[IO, RawData]
 
   def isValid(raw: RawData): Boolean =
-    raw.measurements.count(m => m != null && m.deviation < maxDeviation) >= minMeasurements
+    raw.measurements.count(_.exists(m => m.deviation < maxDeviation)) >= minMeasurements
 
   def process(raw: RawData): SensorData =
-    val readings = raw.measurements.withFilter(m => m != null && m.deviation < maxDeviation).map(_.reading)
+    val readings = raw.measurements.withFilter(_.exists(m => m.deviation < maxDeviation)).map(_.get.reading)
     SensorData(raw.timestamp, readings.sum / readings.size.toDouble)
 
   def getStream(
@@ -138,6 +139,10 @@ def program(proc: Process, port: Port, avgWindowSize: Int, alertAvg: Double, out
 
   for
     (pipe, routes) <- proc.withMovingAverage(avgWindowSize)
+    errorActionService = ErrorAction.httpRoutes[IO](
+      routes,
+      (req, thr) => cats.effect.std.Console[IO].println(thr.getMessage)
+    )
     pipe0 = pipe
       .evalTap: (data, avg) =>
         if avg > alertAvg then IO.println(s"Warning: high average reading $avg at ${data.timestamp}")
@@ -155,7 +160,7 @@ def program(proc: Process, port: Port, avgWindowSize: Int, alertAvg: Double, out
         .default[IO]
         .withHost(ipv4"0.0.0.0")
         .withPort(port)
-        .withHttpApp(routes.orNotFound)
+        .withHttpApp(errorActionService.orNotFound)
         .build
         .use(_ => IO.never)
         .as(())
