@@ -1,2 +1,2 @@
 #!/bin/sh
-target/universal/stage/bin/sensorwatch -J-Xmx4G
+exec target/universal/stage/bin/sensorwatch -J-Xmx4G

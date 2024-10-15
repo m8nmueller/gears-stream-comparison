@@ -76,7 +76,7 @@ private def mkServer(exec: Executor, handler: Handler, port: Int) =
 
   // Use the bounded VirtualThreadPool with a custom executor to start Futures
   val virtualExecutor = new VirtualThreadPool()
-  virtualExecutor.setMaxThreads(32)
+  virtualExecutor.setMaxThreads(128)
   virtualExecutor.setVirtualThreadsExecutor(exec)
 
   // Sets threadPool's reservedThreads = 0 to always use virtual threads
