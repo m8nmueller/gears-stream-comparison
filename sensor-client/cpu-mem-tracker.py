@@ -10,6 +10,7 @@ outfile=f"trace-{procid}.csv"
 
 p = psutil.Process(procid)
 with open(outfile, "w") as out:
+  print(f"[Tracker] Tracing {procid} to {outfile}")
   out.write("time,rss,vms,user,system\n")
   while psutil.pid_exists(procid):
     date = datetime.now()
@@ -19,4 +20,5 @@ with open(outfile, "w") as out:
 
     out.write(f"{date},{mem.rss},{mem.vms},{cpu.user},{cpu.system}\n")
     time.sleep(0.5)
+  print("[Tracker] Done. Flushing trace...")
 

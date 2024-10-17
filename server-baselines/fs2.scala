@@ -30,4 +30,3 @@ object Main extends IOApp.Simple:
       .withHttpApp(service.orNotFound)
       .build
       .use(_ => IO.never)
-

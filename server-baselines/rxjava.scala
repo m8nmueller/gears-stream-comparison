@@ -12,15 +12,18 @@ def hello() =
   val server = vertx.createHttpServer()
   val router = Router.router(vertx)
 
-  router.post("/sensorA").handler: ctx =>
-    HttpServerResponse response = ctx.response()
-    response.putHeader("content-type", "text/plain")
-    response.end("Hello World from Vert.x A!")
+  router
+    .post("/sensorA")
+    .handler: ctx =>
+      val response = ctx.response()
+      response.setStatusCode(202)
+      response.end("Hello World from Vert.x A!")
 
-  router.post("/sensorB").handler: ctx =>
-    HttpServerResponse response = ctx.response()
-    response.putHeader("content-type", "text/plain")
-    response.end("Hello World from Vert.x B!")
+  router
+    .post("/sensorB")
+    .handler: ctx =>
+      val response = ctx.response()
+      response.setStatusCode(202)
+      response.end("Hello World from Vert.x B!")
 
-  server.requestHandler(router).listen(8045)
-
+  server.requestHandler(router).listen(8044)
