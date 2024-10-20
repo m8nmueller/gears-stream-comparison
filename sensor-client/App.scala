@@ -88,7 +88,8 @@ def runner(baseUrl: String, cooldownDescription: String, parallelReqNum: Int, pa
   val reader = new BufferedReader(new FileReader(dataPath))
   val backend = HttpClientFutureBackend()
 
-  val stats = ConcurrentLinkedQueue[(Long, Long)]()
+  val stats = ConcurrentLinkedQueue[(Long, Long, Int, Int)]()
+  val parallelStat = AtomicInteger(parallelReqNum)
   val parallelRequests = new Semaphore(parallelReqNum)
   val succCounter = AtomicInteger(0)
 
@@ -108,18 +109,25 @@ def runner(baseUrl: String, cooldownDescription: String, parallelReqNum: Int, pa
           case Success(res) =>
             val duration = System.currentTimeMillis() - startTime
             parallelRequests.release()
-            if succCounter.incrementAndGet() % parallelGain == 0 then
-              succCounter.getAndAdd(-parallelGain)
-              parallelRequests.release()
+            val currentPStat =
+              if succCounter.incrementAndGet() % parallelGain == 0 then
+                succCounter.getAndAdd(-parallelGain)
+                parallelRequests.release()
+                parallelStat.incrementAndGet()
+              else
+                parallelStat.get()
+            val currentAvailable = parallelRequests.availablePermits()
 
             if res.code.code != 202 then
               println(s"Warning: response HTTP ${res.code.code}")
-              stats.add((startTime, -duration - 1))
-            else stats.add((startTime, duration))
+              stats.add((startTime, -duration - 1, currentPStat, currentAvailable))
+            else stats.add((startTime, duration, currentPStat, currentAvailable))
           case Failure(ex) =>
             val duration = System.currentTimeMillis() - startTime
+            val currentPStat = parallelStat.decrementAndGet()
+            val currentAvailable = parallelRequests.availablePermits()
             println(s"Warning: request failed: $ex")
-            stats.add((startTime, -duration - 1))
+            stats.add((startTime, -duration - 1, currentPStat, currentAvailable))
       if num % 20 == 0 then print(".")
       cooldown(num)
       run(num + 1)
@@ -131,9 +139,9 @@ def runner(baseUrl: String, cooldownDescription: String, parallelReqNum: Int, pa
 
   println("\nDone sending")
   while num > stats.size() do Thread.`yield`()
-  println(s"Sent $num requests in $overallTime ms (${stats.iterator().asScala.count((_, time) => time < 0)} failed)")
+  println(s"Sent $num requests in $overallTime ms (${stats.iterator().asScala.count((_, time, _, _) => time < 0)} failed)")
 
   val statPath = Files.createTempFile(Paths.get("."), "sensorstats-", ".csv")
-  val statString = stats.asScala.toSeq.sortBy(_._1).map((start, duration) => s"$start,$duration").mkString("\n")
+  val statString = stats.asScala.toSeq.sortBy(_._1).map((start, duration, pstat, permits) => s"$start,$duration,$pstat,$permits").mkString("\n")
   Files.writeString(statPath, statString)
   println(s"Wrote stats to $statPath")
