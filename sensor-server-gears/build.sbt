@@ -1,4 +1,4 @@
-val vGears = "0.2.0+60-b46ceb3c-SNAPSHOT"
+val vGears = "0.2.0+68-a83969ac-SNAPSHOT"
 val vJetty = "12.0.13"
 
 ThisBuild / scalaVersion := "3.4.1"
