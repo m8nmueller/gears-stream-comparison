@@ -50,7 +50,7 @@ def run() =
     new Handler.Abstract:
       def handle(request: Request, response: Response, callback: Callback): Boolean =
         response.setStatus(202)
-        response.write(true, ByteBuffer.wrap("Hello World from Jetty A".getBytes()), callback)
+        response.write(true, ByteBuffer.allocate(0), callback)
         true
   )
   handlers.addMapping(
@@ -58,7 +58,7 @@ def run() =
     new Handler.Abstract:
       def handle(request: Request, response: Response, callback: Callback): Boolean =
         response.setStatus(202)
-        response.write(true, ByteBuffer.wrap("Hello World from Jetty B".getBytes()), callback)
+        response.write(true, ByteBuffer.allocate(0), callback)
         true
   )
   mkServer(handlers, 8044).run()

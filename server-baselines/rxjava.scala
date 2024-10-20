@@ -17,13 +17,13 @@ def hello() =
     .handler: ctx =>
       val response = ctx.response()
       response.setStatusCode(202)
-      response.end("Hello World from Vert.x A!")
+      response.end()
 
   router
     .post("/sensorB")
     .handler: ctx =>
       val response = ctx.response()
       response.setStatusCode(202)
-      response.end("Hello World from Vert.x B!")
+      response.end()
 
   server.requestHandler(router).listen(8044)
