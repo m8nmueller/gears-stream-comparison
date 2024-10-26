@@ -94,20 +94,34 @@ end mkServer
 
 private trait BlockingSenderPool[T]:
   def withSender(use: StreamSender[T] => Unit): Unit
+  def close(): Unit
 
 private class QueuedSenderPool[T](it: Iterator[StreamSender[T]]) extends BlockingSenderPool[T]:
+  private var closed = false
   private val queue = LinkedBlockingQueue[StreamSender[T]]()
+
   def withSender(use: StreamSender[T] => Unit): Unit =
     var sender = queue.poll()
+    if closed then
+      sender.close()
+      throw IllegalStateException("closed")
+
     if sender == null then
       synchronized:
         if it.hasNext then sender = it.next()
       if sender == null then sender = queue.take()
     try use(sender)
-    finally queue.add(sender)
+    finally
+      queue.add(sender)
+      if closed then sender.close()
+
+  def close(): Unit =
+    closed = true
+    queue.forEach(_.close())
 
 private class SingleSenderPool[T](sender: StreamSender[T]) extends BlockingSenderPool[T]:
   def withSender(use: StreamSender[T] => Unit): Unit = use(sender)
+  def close(): Unit = sender.close()
 
 class HttpStreams(port: Int):
   private var streams: Seq[PushSenderStream[?]] = null
@@ -157,6 +171,10 @@ class HttpStreams(port: Int):
           pool.withSender: sender =>
             sender.send(HttpHandle(request, response, callback))(using FutureExecutor.asyncInstance.get())
           true
+
+        override protected def doStop(): Unit =
+          super.doStop()
+          pool.close()
 
       handlers.synchronized(handlers.addMapping(PathSpec.from(pathSpec), handler))
 
