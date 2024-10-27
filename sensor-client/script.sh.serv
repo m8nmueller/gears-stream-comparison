@@ -8,9 +8,7 @@ function runIt() {
   else cmd="./run-server.sh ../sensor-server-$name/run.sh"
   fi
 
-  $cmd   1000
-  $cmd  10000
-  $cmd 100000
+  $cmd   XYZ
   mkdir $name-$appendix
   mv logs-* $name-$appendix
 }

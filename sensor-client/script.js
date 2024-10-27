@@ -1,6 +1,7 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
 import { sleep } from 'k6';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
 
 const baseUrl = 'http://localhost:8044';
 const urlA = baseUrl + '/sensorA';
@@ -26,8 +27,26 @@ export const options = {
   // A string specifying the total duration of the test run.
   //duration: '30s',
   stages: [
-    { duration: "10s", target: __ENV.MY_VU_COUNT },
-    { duration: "40s", target: __ENV.MY_VU_COUNT },
+    { duration: "10s", target: 2500 },
+    { duration: "5s", target: 2500 },
+    { duration: "10s", target: 5000 },
+    { duration: "5s", target: 5000 },
+    { duration: "10s", target: 7500 },
+    { duration: "5s", target: 7500 },
+    { duration: "10s", target: 10000 },
+    { duration: "5s", target: 10000 },
+    { duration: "10s", target: 12500 },
+    { duration: "5s", target: 12500 },
+    { duration: "10s", target: 15000 },
+    { duration: "5s", target: 15000 },
+    { duration: "10s", target: 17500 },
+    { duration: "5s", target: 17500 },
+    { duration: "10s", target: 20000 },
+    { duration: "5s", target: 20000 },
+    { duration: "10s", target: 22500 },
+    { duration: "5s", target: 22500 },
+    { duration: "10s", target: 25000 },
+    { duration: "5s", target: 25000 },
     { duration: "10s", target: 0 },
   ],
 };
@@ -95,3 +114,11 @@ export default function () {
   http.post(url, payload, params);
   sleep(0.2);
 }
+
+export function handleSummary(data) {
+  return {
+    'summary.json': JSON.stringify(data), //the default data object
+    'stdout': textSummary(data),
+  };
+}
+
