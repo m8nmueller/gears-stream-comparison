@@ -1,0 +1,133 @@
+{
+  "tasks": [
+    {
+      "$type": "SimpleTask",
+      "name": "constant",
+      "impls": [
+        "rxjava",
+        "fs2",
+        "gears"
+      ],
+      "types": [
+        "sync",
+        "async",
+        "baseline"
+      ],
+      "configs": [
+        {
+          "$type": "K6Runner.ConstantVu",
+          "phase": {
+            "number": 100,
+            "duration": "40s",
+            "rampUpDuration": "10s"
+          },
+          "rampDownDuration": "10s"
+        },
+        {
+          "$type": "K6Runner.ConstantVu",
+          "phase": {
+            "number": 200,
+            "duration": "40s",
+            "rampUpDuration": "10s"
+          },
+          "rampDownDuration": "10s"
+        },
+        {
+          "$type": "K6Runner.ConstantVu",
+          "phase": {
+            "number": 500,
+            "duration": "40s",
+            "rampUpDuration": "10s"
+          },
+          "rampDownDuration": "10s"
+        },
+        {
+          "$type": "K6Runner.ConstantVu",
+          "phase": {
+            "number": 1000,
+            "duration": "40s",
+            "rampUpDuration": "10s"
+          },
+          "rampDownDuration": "10s"
+        }
+      ]
+    },
+    {
+      "$type": "SimpleTask",
+      "name": "increasing",
+      "impls": [
+        "rxjava",
+        "fs2",
+        "gears"
+      ],
+      "types": [
+        "sync",
+        "async",
+        "baseline"
+      ],
+      "configs": [
+        {
+          "$type": "K6Runner.SequentialVu",
+          "phases": [
+            {
+              "number": 100,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 200,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 300,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 400,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 500,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 600,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 700,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 800,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 900,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            },
+            {
+              "number": 1000,
+              "duration": "10s",
+              "rampUpDuration": "5s"
+            }
+          ],
+          "rampDownDuration": "15s"
+        }
+      ]
+    }
+  ],
+  "cpuWarn": 0.05,
+  "memWarn": 0.05,
+  "sysCheckInterval": 200,
+  "warnTries": 2,
+  "tries": 3
+}

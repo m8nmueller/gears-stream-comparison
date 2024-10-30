@@ -433,30 +433,38 @@ sealed trait ControllerTask derives ReadWriter:
   def name: String
   def toConfigs(): Seq[ClientRunner.ClientConfig]
 
-case class SimpleTask(name: String, impls: Seq[String], types: Seq[String], configs: Seq[K6Runner.VuConfig])
-    extends ControllerTask:
+case class SimpleTask(
+    name: String,
+    impls: Seq[String],
+    types: Seq[String],
+    configs: Seq[K6Runner.VuConfig]
+//    include: Seq[String]
+) extends ControllerTask:
   def toConfigs(): Seq[ClientConfig] =
-    for
+    val allConfigs = for
       impl <- impls
       typ <- types
       (conf, cidx) <- configs.zipWithIndex
     yield ClientConfig(s"$impl-$typ.$cidx.$name", conf)
+
+//    include match
+//      case Seq() => allConfigs
+//      case _     => allConfigs.filter(config => include.contains(config.runName))
+    allConfigs
+
+case class RetryStatus(needRetry: Boolean, warnRetry: Boolean, sleepTime: Int)
 
 class Controller(config: ControllerConfig):
   private var client: ClientRunner = uninitialized // synchronize on start and cancel
   private var server: ServerRunner = uninitialized
 
   private var currentTask: ClientConfig = uninitialized
-  private var needRetry: Boolean = uninitialized
-  private var warnRetry: Boolean = uninitialized
 
   def onClientDone(success: Boolean): Unit = ()
 
   def onServerQuit(success: Boolean): Unit =
     val res = synchronized:
-      if currentTask != null then
-        needRetry = true
-        (currentTask, client.cancel())
+      if currentTask != null then (currentTask, client.cancel())
       else null
 
     if res != null then
@@ -470,7 +478,7 @@ class Controller(config: ControllerConfig):
   private def checkResults(
       clientRes: Either[ClientRunner.StopFailure, ClientRunner.StopResult],
       serverRes: Either[ServerRunner.StopFailure, ServerRunner.StopResult]
-  ) =
+  ): RetryStatus =
     if clientRes.isLeft then println(s"[${currentTask.runName}] Client failed: ${clientRes.left.get}")
     if serverRes.isLeft then println(s"[${currentTask.runName}] Server failed: ${serverRes.left.get}")
 
@@ -499,24 +507,22 @@ class Controller(config: ControllerConfig):
           val ss = if serverExceeded then (if clientExceeded then " and server" else "Server") else ""
 
           println(s"[${currentTask.runName}] $cs$ss exceeded system limits")
-          needRetry = true
-          warnRetry = true
-      case (Right(clientData), Left(_)) =>
+          RetryStatus(true, true, 1)
+        else RetryStatus(false, false, 0)
+      case (Right(clientData), Left(serverFailure)) =>
         val newDir = clientData.dataDir + "-" + Random.alphanumeric.filter(_.isLetter).take(6).mkString
         Files.move(Paths.get(clientData.dataDir), Paths.get(newDir))
-        needRetry = true
-      case _ => needRetry = true
+        RetryStatus(true, false, 1)
+      case _ => RetryStatus(true, false, 1)
   end checkResults
 
-  private def runConfig(config: ClientConfig) =
+  private def runConfig(config: ClientConfig): RetryStatus =
     synchronized:
       if currentTask != null then throw IllegalStateException("currentTask not null")
       currentTask = config
-    needRetry = false
-    warnRetry = false
 
     val serverName = config.runName.split("\\.", 2)(0)
-    server.startServer(serverName) match
+    val status = server.startServer(serverName) match
       case Left(failure) =>
         println(s"[${config.runName}] Failed to start: $failure")
         failure match
@@ -524,10 +530,11 @@ class Controller(config: ControllerConfig):
             server.stopServer(running) match
               case Left(value) =>
                 println(s"[${config.runName}] Unable to stop $running to run this: $value")
+                RetryStatus(true, false, 10)
               case Right(value) =>
                 println(s"[${config.runName}] Successfully stopped ${value.name} to run this")
-            needRetry = true
-          case _ => ()
+                RetryStatus(true, false, 1)
+          case _ => RetryStatus(true, false, 1)
       case Right(_) =>
         if !synchronized(client.startClient(config)) then
           val stopResult = server.stopServer(serverName)
@@ -539,6 +546,7 @@ class Controller(config: ControllerConfig):
         checkResults(clientRes, serverRes)
 
     synchronized { currentTask = null }
+    status
   end runConfig
 
   private def start0() =
@@ -552,16 +560,17 @@ class Controller(config: ControllerConfig):
     for ctask <- config.tasks do
       println(s"[Task ${ctask.name}]")
       for cc <- ctask.toConfigs() do
-        needRetry = true
+        var status: RetryStatus = null
         var tries = config.tries
         var warnTries = config.warnTries
 
-        while needRetry && tries > 0 && warnTries > 0 do
-          runConfig(cc)
+        while (status == null || status.needRetry) && tries > 0 && warnTries > 0 do
+          status = runConfig(cc)
           tries -= 1
-          if warnRetry then warnTries -= 1
+          if status.warnRetry then warnTries -= 1
+          Thread.sleep(status.sleepTime * 1000)
 
-        if (needRetry) println(s"${cc.runName} failed after retrying")
+        if (status.needRetry) println(s"${cc.runName} failed after retrying")
   end start0
 
   def start(client: ClientRunner, server: ServerRunner) =

@@ -21,6 +21,7 @@ const rparams = {
 };
 
 export const options = {
+  gracefulStop: '5s'
 };
 
 // https://mika-s.github.io/javascript/random/normal-distributed/2019/05/15/generating-normally-distributed-random-numbers-in-javascript.html
